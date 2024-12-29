@@ -1,0 +1,317 @@
+---
+title: "STA302 Final project"
+output:
+  pdf_document: default
+  html_document: default
+date: "2024-11-17"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+install.packages("car")
+library(car)
+# Read the CSV file into a data frame
+data <- read.csv("nba_final.csv")
+new <- subset(as.data.frame(data), select = c(PTS, MP, GS, G, FG., AST, Play))
+
+
+# Summaries for key variables
+summary(new$PTS)  # Points per Game
+summary(new$FG.)  # Field Goal Percentage
+summary(new$AST)  # Assists
+summary(new$G)    # Games Played
+summary(new$GS)   # Games Started
+summary(new$MP)   # Minutes Played
+
+# Categorical variable Play summary
+play_summary <- table(data$Play)
+play_summary
+
+```
+
+## Fitting the model
+
+```{r cars}
+# Fit the initial model
+model <- lm(PTS ~ MP + GS + G + FG. + AST + Play, data = new)
+summary(model)
+
+# Residuals vs Fitted plot
+y_value <- resid(model)
+x_value <- fitted(model)
+plot(x = x_value, y = y_value, main="Residual vs Fitted", xlab="Fitted", ylab="Residuals")
+
+```
+
+## Applying a square root transformation to the response variable
+
+```{r pressure, echo=FALSE}
+# Load necessary packages
+#install.packages("car")
+#library(car)
+
+# Fit a model with square root transformed PTS
+sqrtPPG <- sqrt(new$PTS)
+model2 <- lm(sqrtPPG ~ MP + GS + G + FG. + AST + Play, data = new)
+
+# Residual vs Fitted plot for transformed model
+x_value1 <- fitted(model2)
+y_value1 <- resid(model2)
+par(mfrow=c(1,3))
+plot(x = x_value1, y = y_value1, main="Residual vs Fitted", xlab="Fitted", ylab="Residuals")
+
+# Q-Q plots
+qqnorm(y_value, main="Original (y)")
+qqline(y_value)
+
+qqnorm(y_value1, main="Square Root Transformed (sqrt(y))")
+qqline(y_value1)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+
+## Residuals vs predictors
+
+```{r pressure, echo=FALSE}
+
+new <- new[complete.cases(new), ]
+
+# Define a custom layout: 2 rows, 5 columns
+layout(matrix(1:10, nrow = 2, ncol = 5, byrow = TRUE))
+
+# Residuals vs Quantitative Predictors (New Model)
+plot(new$MP, y_value1, main = "New: Residuals vs MP", xlab = "Minutes Played (MP)", ylab = "Residuals")
+plot(new$G, y_value1, main = "New: Residuals vs G", xlab = "Games Played (G)", ylab = "Residuals")
+plot(new$AST, y_value1, main = "New: Residuals vs AST", xlab = "Assists (AST)", ylab = "Residuals")
+plot(new$GS, y_value1, main = "New: Residuals vs GS", xlab = "Games Started (GS)", ylab = "Residuals")
+plot(new$`FG.`, y_value1, main = "New: Residuals vs FG%", xlab = "Field Goal Percentage (FG%)", ylab = "Residuals")
+
+# Residuals vs Quantitative Predictors (Old Model)
+plot(new$MP, y_value, main = "Old: Residuals vs MP", xlab = "Minutes Played (MP)", ylab = "Residuals")
+plot(new$G, y_value, main = "Old: Residuals vs G", xlab = "Games Played (G)", ylab = "Residuals")
+plot(new$AST, y_value, main = "Old: Residuals vs AST", xlab = "Assists (AST)", ylab = "Residuals")
+plot(new$GS, y_value, main = "Old: Residuals vs GS", xlab = "Games Started (GS)", ylab = "Residuals")
+plot(new$`FG.`, y_value, main = "Old: Residuals vs FG%", xlab = "Field Goal Percentage (FG%)", ylab = "Residuals")
+
+# Power transform on predictors
+
+# Adjust predictors to ensure positivity if necessary
+new$GS_adj <- new$GS + 1  # Games Started
+new$FG_adj <- new$`FG.` + 1  # Field Goal Percentage
+new$AST_adj <- new$AST + 1  # Assists
+new$MP_adj <- new$MP + 1  # Minutes Played
+new$G_adj <- new$G + 1  # Games Played
+
+# Run power transformation on the predictors
+power_results <- powerTransform(cbind(new$G_adj, new$GS_adj, new$MP_adj, new$FG_adj, new$AST_adj))
+
+# New model with transformed predictors
+# Apply power transformations to each predictor based on the Estimated Power
+new$G_transformed <- new$G_adj^1.2345
+new$GS_transformed <- new$GS_adj^0.1283
+new$MP_transformed <- new$MP_adj^0.8316
+new$FG_transformed <- new$`FG_adj`^1.2727
+new$AST_transformed <- new$AST_adj^(-0.5961)
+
+new$sqrtPPG <- sqrt(new$PTS)
+
+model3 <- lm(sqrtPPG ~ G_transformed + GS_transformed + MP_transformed + FG_transformed + AST_transformed + Play, data = new)
+
+# Extract residuals from the model3
+residuals_model3 <- resid(model3)
+
+# Set up a 1-row, 5-column layout for the plots
+par(mfrow = c(1, 5))
+
+# Residuals vs G (Games Played)
+plot(new$G_transformed, residuals_model3, 
+     main = "Residuals vs G (Transformed)", 
+     xlab = "Games Played (Transformed)", 
+     ylab = "Residuals")
+abline(h = 0, col = "red", lty = 2)
+
+# Residuals vs GS (Games Started)
+plot(new$GS_transformed, residuals_model3, 
+     main = "Residuals vs GS (Transformed)", 
+     xlab = "Games Started (Transformed)", 
+     ylab = "Residuals")
+abline(h = 0, col = "red", lty = 2)
+
+# Residuals vs MP (Minutes Played)
+plot(new$MP_transformed, residuals_model3, 
+     main = "Residuals vs MP (Transformed)", 
+     xlab = "Minutes Played (Transformed)", 
+     ylab = "Residuals")
+abline(h = 0, col = "red", lty = 2)
+
+# Residuals vs FG% (Field Goal Percentage)
+plot(new$FG_transformed, residuals_model3, 
+     main = "Residuals vs FG% (Transformed)", 
+     xlab = "Field Goal Percentage (Transformed)", 
+     ylab = "Residuals")
+abline(h = 0, col = "red", lty = 2)
+
+# Residuals vs AST (Assists)
+plot(new$AST_transformed, residuals_model3, 
+     main = "Residuals vs AST (Transformed)", 
+     xlab = "Assists (Transformed)", 
+     ylab = "Residuals")
+abline(h = 0, col = "red", lty = 2)
+
+# Boxplot for categorical variable Play
+boxplot(y_value ~ new$Play , main="Residual vs All Star Appearance",
+xlab="All Star Appearance", ylab="Residuals")
+
+
+```
+
+## Updated model
+
+```{r pressure, echo=FALSE}
+# Model 3: transformed predictors
+
+model3 <- lm(sqrtPPG ~ G_transformed + GS_transformed + MP_transformed + FG. + AST + Play, data = new)
+
+y_value3 <-resid(model3)
+x_value3 <-fitted(model3)
+plot(x = x_value3, y = y_value3, main="Residual vs Fitted ", xlab="Fitted",ylab="Residuals") 
+
+qqnorm(y_value3, main="sqrt(y) and Transforjme d\\\ Predictors")
+qqline(y_value3)
+
+```
+
+## Checking additional conditions
+```{R}
+# Condition 1: Conditional mean response
+model4 <- lm(sqrtPPG ~ GS_transformed + MP_transformed + FG. + AST + Play, data = new)
+x_value4 <- fitted(model4)
+y_value4 <- resid(model4)
+
+
+plot(x = x_value4, y_value4 = sqrtPPG, main="Points per game vs Fitted", xlab="Fitted", ylab="Points per game")
+abline(a = 0, b = 1, lty = 2)
+
+# Condition 2: Conditional mean predictors
+pairs(new[, c(2,3,5,6)])
+cor(new[, c(2,3,5,6)])
+```
+## Hypothesis testing
+```{R}
+summary(model4)
+
+#Confidence interval of the transformed model
+confint(model4)
+
+# The F-statistic of 2167 with a p-value < 2.2e-16 in your model summary indicates that the overall regression model is highly significant.
+```
+
+## Partial F-test
+```{R}
+
+anova(model4, model3)
+
+# We decide to keep G_transformed and keep model 3
+```
+## Assesing multicollinearity: VIF 
+```{R}
+vif(model3)
+vif(model4)
+# We use model 3 because anova says G is significant and vif is only marginally above 5
+```
+
+#Identifying Problematic Observations
+```{R}
+dfbetas <- dfbetas(model3)
+dim(dfbetas)
+#given dimensions: 1404, 6
+
+n=1404
+
+cutoff_dfbetas <- 6/sqrt(n)
+which(abs(dfbetas[,1])>cutoff_dfbetas)
+which(abs(dfbetas[,2])>cutoff_dfbetas)
+
+hii <- hatvalues(model3)
+cutoff_hii <- 2*6/n
+which(hii > cutoff_hii)
+
+ri <- rstandard(model3)
+which(ri > 2 | ri < -2)
+
+di <- cooks.distance(model3)
+cutoff_di <-qf(0.5, 2, 35 -2)
+which(di>cutoff_di)
+
+dffits <- dffits(model3)
+cutoff_dffits <- 2*sqrt(6/n)
+which(abs(dffits) > cutoff_dffits)
+
+# Identify flagged observations for each diagnostic test
+flagged_dfbetas_1 <- which(abs(dfbetas[, 1]) > cutoff_dfbetas)  # For Intercept
+flagged_dfbetas_2 <- which(abs(dfbetas[, 2]) > cutoff_dfbetas)  # For another predictor
+flagged_hii <- which(hii > cutoff_hii)                         # High leverage
+flagged_ri <- which(ri > 2 | ri < -2)                          # Standardized residuals
+flagged_di <- which(di > cutoff_di)                            # Cook's Distance
+flagged_dffits <- which(abs(dffits) > cutoff_dffits)           # DFFITS
+
+# Combine all flagged observations into a single vector
+all_flagged <- c(flagged_dfbetas_1, flagged_dfbetas_2, flagged_hii, flagged_ri, flagged_di, flagged_dffits)
+
+# Count the frequency of each observation being flagged
+flagged_counts <- table(all_flagged)
+
+# Find observations flagged by two or more diagnostics
+multi_flagged <- as.numeric(names(flagged_counts[flagged_counts >= 2]))
+
+# Print the observations flagged by two or more tests
+print(multi_flagged)
+
+# Optionally, inspect the corresponding rows in the dataset
+problematic_data <- new[multi_flagged, ]
+print(problematic_data)
+
+## Explain why PTS (left skewed) explain why outliers should be kept.
+```
+
+```{R}
+# Cook's Distance
+plot(di, main = "Cook's Distance", xlab = "Observation Index", ylab = "Cook's Distance")
+abline(h = cutoff_di, col = "red", lty = 2)
+
+# Hat Values
+plot(hii, main = "Hat Values", xlab = "Observation Index", ylab = "Hat Values")
+abline(h = cutoff_hii, col = "red", lty = 2)
+
+# DFFITS
+plot(dffits, main = "DFFITS", xlab = "Observation Index", ylab = "DFFITS")
+abline(h = c(-cutoff_dffits, cutoff_dffits), col = "red", lty = 2)
+
+```
+
+```{R}
+#Step AIC
+library(MASS)
+stepAIC(lm(sqrtPPG ~ G_transformed + GS_transformed + MP_transformed + FG. + AST + Play, data=new[,-1]),
+scope=list(lower=lm(sqrtPPG ~ 1, data=new[,-1])),
+direction = "backward", k=2)
+
+#Step BIC
+stepAIC(lm(sqrtPPG ~ 1, data=new[,-1]),
+scope=list(upper=lm(sqrtPPG ~ G_transformed + GS_transformed + MP_transformed + FG. + AST + Play, data=new[,-1])),
+direction = "forward", k=log(nrow(new)))
+
+#All Possible Subsets
+install.packages("leaps")
+library(leaps)
+library(car)
+# runs all possible subsets
+best <- regsubsets(sqrtPPG ~ G_transformed + GS_transformed + MP_transformed + FG. + AST + Play, data=new[,-1], nbest=1, nvmax=7)
+summary(best)
+```
+```
+
+
+
