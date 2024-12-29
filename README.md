@@ -1,5 +1,5 @@
 # MLR-Report
-**focus question:** To what extent do key performance criteria and playing time metrics influence an NBA player’s points per game?
+**Focus Question:** To what extent do key performance criteria and playing time metrics influence an NBA player’s points per game?
 
 **Software Tools:** 
 - R (libraries: car)
